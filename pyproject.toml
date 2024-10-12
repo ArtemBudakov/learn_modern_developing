@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "learn-modern-developing"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+packages = [{include = "learn_modern_developing"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+django = "^5.1.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
