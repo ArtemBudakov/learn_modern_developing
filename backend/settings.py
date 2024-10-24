@@ -201,36 +201,3 @@ SPECTACULAR_SETTINGS = {
 }
 
 LOG_LEVEL = env.str('LOG_LEVEL', default='DEBUG')
-
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'filters': {'correlation_id': {'()': 'django_guid.log_filters.CorrelationId'}},
-    'formatters': {
-        'medium': {'format': '%(levelname)s %(asctime)s [%(correlation_id)s] [%(name)s:%(lineno)d] %(message)s'}
-    },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'level': LOG_LEVEL if DEBUG else 'INFO',
-            'formatter': 'medium',
-            'filters': ['correlation_id'],
-        },
-    },
-    'loggers': {
-        '': {
-            'handlers': ['console'],
-            'level': LOG_LEVEL,
-        },
-        'django.db.backends': {
-            'handlers': ['console'],
-            'level': 'DEBUG',
-            'propagate': False,
-        },
-        'django.utils.autoreload': {
-            'handlers': ['console'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-    },
-}
