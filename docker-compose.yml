@@ -1,0 +1,16 @@
+services:
+
+  postgres:
+    container_name: backend-postgres
+    image: postgres:14.6-alpine
+    environment:
+      POSTGRES_PASSWORD: "${DB_PASSWORD:-password}"
+      POSTGRES_USER: "${DB_USER:-user}"
+      POSTGRES_DB: "${DB_NAME:-backend}"
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: pg_isready -U ${DB_USER:-user} -d ${DB_NAME:-backend}
+      interval: 3s
+      timeout: 2s
+      retries: 3

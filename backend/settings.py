@@ -12,6 +12,9 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 from pathlib import Path
 
+import dj_database_url
+from environs import Env
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -19,18 +22,44 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
+# Load ENV
+env = Env()
+env.read_env(path=str(BASE_DIR / '.env'))
+
+
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-0%)3qctk5b@l*v2+eh31%#3c@vz1=cu8(tazz_cv7xo!u@#qq7'
+SECRET_KEY = env.str('SECRET_KEY', '1')
+
+# ENV SETTINGS
+ENVIRONMENT_NAME = env.str('ENVIRONMENT_NAME', 'local')
+ENVIRONMENT_COLORS = {
+    'local': '#555555',
+    'dev': '#009900',
+    'prod': '#FF4444',
+    'stage': '#FF8020',
+    'demo': '#961da3',
+    'vagrant': '#1563FF',
+    'silent': '#000000',
+}
+ENVIRONMENT_COLOR = ENVIRONMENT_COLORS[ENVIRONMENT_NAME]
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env.bool('DEBUG', True)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', ['*'])
+
+# CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=['http://localhost:8000/', 'http://127.0.0.1:8000/'])
+CORS_ALLOW_ALL_ORIGINS = env.bool('CORS_ALLOW_ALL_ORIGINS', True)
+CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', [])
 
 
 # Application definition
 
 INSTALLED_APPS = [
+    'corsheaders',
+    'drf_spectacular',
+    'rest_framework',
+
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -42,6 +71,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -54,7 +84,9 @@ ROOT_URLCONF = 'backend.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [
+            (BASE_DIR / 'backend' / 'core' / 'templates'),
+        ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -73,11 +105,21 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+DB_HOST = env.str('DB_HOST', default='127.0.0.1')
+DB_PORT = env.str('DB_PORT', default='5432')
+DB_USER = env.str('DB_USER', default='postgres')
+DB_PASSWORD = env.str('DB_PASSWORD', default='postgres')
+DB_NAME = env.str('DB_NAME', default='postgres')
+
+DB_URL = f'postgres://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?application_name=default'
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(default=DB_URL, engine='django.db.backends.postgresql'),
+    'SCMEngine': dj_database_url.config(
+        default=DB_URL,
+    ),
+    'integrations': dj_database_url.config(
+        default=DB_URL,
+    ),
 }
 
 
@@ -121,3 +163,74 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# REST SETTINGS
+APPEND_SLASH = env.bool('APPEND_SLASH', True)
+REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DATETIME_FORMAT': '%Y-%m-%d %H:%M:%S',
+    'DEFAULT_AUTHENTICATION_CLASSES': (),
+    'DEFAULT_PERMISSION_CLASSES': (),
+    'TEST_REQUEST_DEFAULT_FORMAT': 'json',
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
+}
+
+
+SWAGGER_URL_ADDRESS = env.str('SWAGGER_URL_ADDRESS', default='127.0.0.1')
+SWAGGER_URL_PORT = env.int('SWAGGER_URL_PORT', default=8000)
+SWAGGER_URL_SERVER = f'{SWAGGER_URL_ADDRESS}:{SWAGGER_URL_PORT}'
+
+SPECTACULAR_SETTINGS = {
+    'SERVERS': [
+        {'url': SWAGGER_URL_SERVER},
+    ],
+    'TITLE': 'Auto Order API',
+    'VERSION': '0.1.0',
+    'DESCRIPTION': 'Auto Order',
+    'SERVE_PERMISSIONS': ['rest_framework.permissions.AllowAny'],
+    'SERVE_INCLUDE_SCHEMA': True,
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'displayOperationId': True,
+        'showExtensions': True,
+        'showCommonExtensions': True,
+    },
+    'POSTPROCESSING_HOOKS': [
+        'drf_spectacular.hooks.postprocess_schema_enums',
+    ],
+}
+
+LOG_LEVEL = env.str('LOG_LEVEL', default='DEBUG')
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'filters': {'correlation_id': {'()': 'django_guid.log_filters.CorrelationId'}},
+    'formatters': {
+        'medium': {'format': '%(levelname)s %(asctime)s [%(correlation_id)s] [%(name)s:%(lineno)d] %(message)s'}
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'level': LOG_LEVEL if DEBUG else 'INFO',
+            'formatter': 'medium',
+            'filters': ['correlation_id'],
+        },
+    },
+    'loggers': {
+        '': {
+            'handlers': ['console'],
+            'level': LOG_LEVEL,
+        },
+        'django.db.backends': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'django.utils.autoreload': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
